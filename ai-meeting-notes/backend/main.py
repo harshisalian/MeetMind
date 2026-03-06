@@ -22,7 +22,8 @@ def read_root():
 @app.post("/upload")
 async def upload_meeting(file: UploadFile = File(...)):
     # save the incoming file
-    filename = file.filename
+    import time
+    filename = f"{int(time.time())}_{file.filename}"
     if not filename.lower().endswith((".mp3", ".wav", ".mp4")):
         raise HTTPException(status_code=400, detail="Unsupported file type")
     file_path = os.path.join(RECORDINGS_DIR, filename)
@@ -69,10 +70,33 @@ async def upload_meeting(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
+    return {"meeting_id": meeting.id, "filename": filename}
+
+
+@app.get("/meetings")
+def list_meetings():
+    from .database import SessionLocal
+    from .models import Meeting
+    db = SessionLocal()
+    meetings = db.query(Meeting).all()
+    db.close()
+    return [{"id": m.id, "filename": m.filename} for m in meetings]
+
+
+@app.get("/meetings/{meeting_id}")
+def get_meeting(meeting_id: int):
+    from .database import SessionLocal
+    from .models import Meeting
+    import json
+    db = SessionLocal()
+    m = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    db.close()
+    if not m:
+        raise HTTPException(status_code=404, detail="Meeting not found")
     return {
-    "meeting_id": meeting.id,
-    "filename": filename,
-    "transcript": transcript,
-    "summary": summary,
-    "action_items": actions
-}
+        "id": m.id,
+        "filename": m.filename,
+        "transcript": m.transcript,
+        "summary": m.summary,
+        "actions": json.loads(m.actions) if m.actions else [],
+    }

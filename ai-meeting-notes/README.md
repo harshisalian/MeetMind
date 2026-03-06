@@ -53,3 +53,15 @@ ai-meeting-notes/
    uvicorn backend.main:app --reload
    ```
 5. Open `http://localhost:8000` to see the welcome message.
+
+## API Endpoints
+
+* `POST /upload` – upload a `.mp3`, `.wav` or `.mp4` file. Returns meeting ID.
+* `GET /meetings` – list all imported meetings (id + filename).
+* `GET /meetings/{id}` – retrieve a single meeting record with transcript, summary, and actions.
+
+Sample curl to fetch a meeting:
+
+```bash
+curl http://localhost:8000/meetings/1
+```
