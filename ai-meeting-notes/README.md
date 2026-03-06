@@ -46,8 +46,10 @@ ai-meeting-notes/
    ```bash
    pip install -r requirements.txt
    ```
-3. Start the server:
+3. Ensure you have the FFmpeg binary installed and available on your PATH. On Windows you can download from https://ffmpeg.org/download.html and add `ffmpeg.exe` to your path.
+
+4. Start the server:
    ```bash
    uvicorn backend.main:app --reload
    ```
-4. Open `http://localhost:8000` to see the welcome message.
+5. Open `http://localhost:8000` to see the welcome message.

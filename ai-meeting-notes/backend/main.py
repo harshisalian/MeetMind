@@ -21,11 +21,58 @@ def read_root():
 
 @app.post("/upload")
 async def upload_meeting(file: UploadFile = File(...)):
-    # simple file save
+    # save the incoming file
     filename = file.filename
     if not filename.lower().endswith((".mp3", ".wav", ".mp4")):
         raise HTTPException(status_code=400, detail="Unsupported file type")
     file_path = os.path.join(RECORDINGS_DIR, filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    return {"filename": filename, "status": "saved"}
+
+    # convert video to audio if needed
+    try:
+        from .whisper_service import convert_to_wav, transcribe_audio
+        from .summarizer import generate_summary
+        from .action_items import extract_action_items
+        from .database import SessionLocal
+        from .models import Meeting
+        import json
+    except Exception as e:
+        # import failure
+        raise HTTPException(status_code=500, detail=f"Import error: {e}")
+
+    try:
+        audio_path = convert_to_wav(file_path)
+        # transcribe using Whisper (may take some time)
+        transcript = transcribe_audio(audio_path)
+        # generate summary and actions
+        summary = generate_summary(transcript)
+        actions = extract_action_items(transcript)
+    except Exception as e:
+        # log to console
+        import traceback, sys
+        traceback.print_exc(file=sys.stderr)
+        raise HTTPException(status_code=500, detail=f"Processing error: {e}")
+
+    try:
+        db = SessionLocal()
+        meeting = Meeting(
+            filename=filename,
+            transcript=transcript,
+            summary=summary,
+            actions=json.dumps(actions),
+        )
+        db.add(meeting)
+        db.commit()
+        db.refresh(meeting)
+        db.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+    return {
+    "meeting_id": meeting.id,
+    "filename": filename,
+    "transcript": transcript,
+    "summary": summary,
+    "action_items": actions
+}
